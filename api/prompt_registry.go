@@ -13,13 +13,16 @@ import (
 // PromptRegistryClient loads prompts from the MLflow Prompt Registry via REST API.
 type PromptRegistryClient struct {
 	baseURL    string
+	token      string
 	httpClient *http.Client
 }
 
 func NewPromptRegistryClient() *PromptRegistryClient {
 	baseURL := getEnv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+	token := getEnv("MLFLOW_TRACKING_TOKEN", "")
 	return &PromptRegistryClient{
 		baseURL:    baseURL,
+		token:      token,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -67,11 +70,11 @@ func (p *PromptRegistryClient) LoadPrompt(promptURI string) (string, error) {
 	}
 
 	for _, tag := range mv.ModelVersion.Tags {
-		if tag.Key == "mlflow.prompt.template" {
+		if tag.Key == "mlflow.prompt.text" || tag.Key == "mlflow.prompt.template" {
 			return tag.Value, nil
 		}
 	}
-	return "", fmt.Errorf("prompt %q has no mlflow.prompt.template tag", promptURI)
+	return "", fmt.Errorf("prompt %q has no mlflow.prompt.text tag", promptURI)
 }
 
 // Format fills in {{variable}} placeholders in the template.
@@ -118,7 +121,14 @@ func isNumeric(s string) bool {
 }
 
 func (p *PromptRegistryClient) getJSON(apiURL string, dest interface{}) error {
-	resp, err := p.httpClient.Get(apiURL)
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	if p.token != "" {
+		req.Header.Set("Authorization", "Bearer "+p.token)
+	}
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("http get: %w", err)
 	}

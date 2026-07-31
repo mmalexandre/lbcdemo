@@ -31,6 +31,7 @@ services:
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
       GIN_MODE: release
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
+      MLFLOW_TRACKING_TOKEN: "${MLFLOW_TRACKING_TOKEN}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o-mini}"
       MLFLOW_PROMPT_URI: "${MLFLOW_PROMPT_URI:-prompts:/cardgame/production}"
@@ -134,7 +135,8 @@ services:
           --artifacts-destination "s3://mlflow" \
           --serve-artifacts \
           --host "0.0.0.0" \
-          --port "5000"
+          --port "5000" \
+          --allowed-hosts "*"
     ports:
       - "5000:5000"
     healthcheck:
