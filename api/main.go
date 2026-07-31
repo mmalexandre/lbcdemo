@@ -36,6 +36,22 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// loadSystemPrompt resolves the system prompt at request time.
+// If MLFLOW_PROMPT_URI is set (e.g. "prompts:/assistant/production"), the
+// template is fetched from the MLflow Prompt Registry. Otherwise it falls back
+// to the SYSTEM_PROMPT env var (default: "You are a helpful assistant.").
+func loadSystemPrompt(registry *PromptRegistryClient) string {
+	if uri := getEnv("MLFLOW_PROMPT_URI", ""); uri != "" {
+		template, err := registry.LoadPrompt(uri)
+		if err != nil {
+			log.Printf("prompt registry: could not load %q, falling back to SYSTEM_PROMPT: %v", uri, err)
+		} else {
+			return template
+		}
+	}
+	return getEnv("SYSTEM_PROMPT", "You are a helpful assistant.")
+}
+
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
@@ -68,6 +84,7 @@ func main() {
 
 	llmClient := NewLLMClient()
 	mlflowTracer := NewMLflowTracer()
+	promptRegistry := NewPromptRegistryClient()
 
 	r := gin.Default()
 
@@ -150,7 +167,7 @@ func main() {
 			user, _ := c.Get("user")
 			username, _ := user.(string)
 
-			systemPrompt := getEnv("SYSTEM_PROMPT", "You are a helpful assistant.")
+			systemPrompt := loadSystemPrompt(promptRegistry)
 			startTime := time.Now()
 
 			llmResp, err := llmClient.Chat(c.Request.Context(), systemPrompt, req.Prompt)

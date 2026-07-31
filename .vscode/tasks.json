@@ -44,6 +44,16 @@
       "command": "docker compose up -d --build api && docker compose logs -f api",
       "isBackground": true,
       "problemMatcher": []
+    },
+    {
+      "label": "Open psql",
+      "type": "shell",
+      "command": "docker exec -it gomodule1-postgres-1 psql -U postgres -d appdb",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
     }
   ]
 }
