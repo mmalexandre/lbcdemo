@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
@@ -57,6 +58,9 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
+
+	llmClient := NewLLMClient()
+	mlflowTracer := NewMLflowTracer()
 
 	r := gin.Default()
 
@@ -132,7 +136,29 @@ func main() {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusOK, PromptResponse{Reply: req.Prompt})
+
+			user, _ := c.Get("user")
+			username, _ := user.(string)
+
+			systemPrompt := getEnv("SYSTEM_PROMPT", "You are a helpful assistant.")
+			startTime := time.Now()
+
+			llmResp, err := llmClient.Chat(c.Request.Context(), systemPrompt, req.Prompt)
+			duration := time.Since(startTime)
+
+			if err != nil {
+				log.Printf("llm error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get LLM response"})
+				return
+			}
+
+			go mlflowTracer.LogLLMTrace(
+				username, req.Prompt, llmResp.Content, llmResp.Model,
+				llmResp.InputTokens, llmResp.OutputTokens,
+				startTime, duration,
+			)
+
+			c.JSON(http.StatusOK, PromptResponse{Reply: llmResp.Content})
 		})
 	}
 
