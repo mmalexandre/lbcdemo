@@ -8,4 +8,4 @@ COPY . .
 # Build with debug flags: disable optimizations and inlining
 RUN CGO_ENABLED=0 GOOS=linux go build -gcflags="all=-N -l" -o server .
 EXPOSE 8080 2345
-CMD ["dlv", "exec", "./server", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "--continue"]
+CMD ["sh", "-c", "CGO_ENABLED=0 GOOS=linux go build -gcflags='all=-N -l' -o server . && dlv exec ./server --listen=:2345 --headless=true --api-version=2 --accept-multiclient --continue"]

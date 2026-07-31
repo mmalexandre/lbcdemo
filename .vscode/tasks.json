@@ -30,7 +30,10 @@
     },
     {
       "label": "Run All",
-      "dependsOn": ["Run API", "Run Frontend"],
+      "dependsOn": [
+        "Run API",
+        "Run Frontend"
+      ],
       "dependsOrder": "parallel",
       "group": {
         "kind": "build",
@@ -49,6 +52,13 @@
       "label": "Rebuild Go and debug (Delve)",
       "type": "shell",
       "command": "docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build api",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Recompile Go and restart Delve",
+      "type": "shell",
+      "command": "docker exec gomodule1-api-1 sh -c \"kill -9 \$(pgrep dlv) 2>/dev/null; CGO_ENABLED=0 GOOS=linux go build -gcflags='all=-N -l' -o server . && dlv exec ./server --listen=:2345 --headless=true --api-version=2 --accept-multiclient --continue &\"",
       "isBackground": true,
       "problemMatcher": []
     },

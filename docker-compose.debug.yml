@@ -13,3 +13,5 @@ services:
       GIN_MODE: debug
     security_opt:
       - "seccomp:unconfined"
+    volumes:
+      - ./api:/app
