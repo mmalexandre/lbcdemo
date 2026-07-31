@@ -6,7 +6,106 @@ interface Message {
   text: string
 }
 
-function App() {
+function LoginPage({ onLogin }: { onLogin: (username: string) => void }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        onLogin(data.username)
+      } else {
+        setError('Invalid username or password.')
+      }
+    } catch {
+      setError('Could not reach the server.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="login-page">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <h1 className="login-title">Sign in</h1>
+        <div className="login-field">
+          <label htmlFor="username">Username</label>
+          <input
+            id="username"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
+          />
+        </div>
+        <div className="login-field">
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        {error && <p className="login-error">{error}</p>}
+        <button className="login-btn" type="submit" disabled={loading}>
+          {loading ? 'Signing in…' : 'Login'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function ProfileMenu({ username, onLogout }: { username: string; onLogout: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div className="profile-menu" ref={ref}>
+      <button className="profile-btn" onClick={() => setOpen(o => !o)} aria-haspopup="true" aria-expanded={open}>
+        <span className="profile-avatar">{username.charAt(0).toUpperCase()}</span>
+        <span className="profile-username">{username}</span>
+      </button>
+      {open && (
+        <div className="profile-dropdown">
+          <button
+            className="profile-dropdown-item"
+            onClick={() => { setOpen(false); onLogout() }}
+          >
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChatPage({ username, onLogout }: { username: string; onLogout: () => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,11 +124,16 @@ function App() {
     setLoading(true)
 
     try {
-      const res = await fetch('http://localhost:8080/prompt', {
+      const res = await fetch('/prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ prompt: text }),
       })
+      if (res.status === 401) {
+        onLogout()
+        return
+      }
       const data = await res.json()
       setMessages(prev => [...prev, { role: 'assistant', text: data.reply }])
     } catch {
@@ -49,6 +153,10 @@ function App() {
   return (
     <div className="app">
       <div className="chat-container">
+        <div className="chat-header">
+          <ProfileMenu username={username} onLogout={onLogout} />
+        </div>
+
         <div className="messages">
           {messages.map((msg, i) => (
             <div key={i} className={`message-row ${msg.role}`}>
@@ -68,7 +176,7 @@ function App() {
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Enter to send, Shift+Enter for newline)"
+            placeholder="Type your message… (Enter to send, Shift+Enter for newline)"
             rows={4}
           />
           <button onClick={sendPrompt} disabled={loading || !prompt.trim()}>
@@ -80,4 +188,32 @@ function App() {
   )
 }
 
+function App() {
+  const [username, setUsername] = useState<string | null>(null)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    fetch('/me', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.username) setUsername(data.username)
+      })
+      .finally(() => setChecking(false))
+  }, [])
+
+  const handleLogout = async () => {
+    await fetch('/logout', { method: 'POST', credentials: 'include' })
+    setUsername(null)
+  }
+
+  if (checking) return null
+
+  if (!username) {
+    return <LoginPage onLogin={setUsername} />
+  }
+
+  return <ChatPage username={username} onLogout={handleLogout} />
+}
+
 export default App
+

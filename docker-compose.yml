@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - app_net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    networks:
+      - app_net
+    environment:
+      DATABASE_URL: "host=postgres port=5432 user=postgres password=postgres dbname=appdb sslmode=disable"
+      SESSION_SECRET: "change-this-secret-in-production"
+      FRONTEND_ORIGIN: "http://localhost:3000"
+      GIN_MODE: release
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "http://localhost:8080"
+    restart: unless-stopped
+    networks:
+      - app_net
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

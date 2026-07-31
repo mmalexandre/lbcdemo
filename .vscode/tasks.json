@@ -2,6 +2,13 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Run all with Docker",
+      "type": "shell",
+      "command": "docker compose up",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
       "label": "Run API",
       "type": "shell",
       "command": "go run main.go",
