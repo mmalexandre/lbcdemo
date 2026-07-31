@@ -11,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -49,7 +50,13 @@ func authMiddleware() gin.HandlerFunc {
 }
 
 func main() {
-	dsn := getEnv("DATABASE_URL", "host=localhost port=5432 user=postgres password=postgres dbname=appdb sslmode=disable")
+	// Load .env if present (ignored in production where env vars are set externally)
+	_ = godotenv.Load()
+
+	dsn := getEnv("DATABASE_URL", "")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
+	}
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatalf("failed to open db: %v", err)
@@ -64,7 +71,10 @@ func main() {
 
 	r := gin.Default()
 
-	sessionSecret := getEnv("SESSION_SECRET", "super-secret-key-change-in-prod")
+	sessionSecret := getEnv("SESSION_SECRET", "")
+	if sessionSecret == "" {
+		log.Fatal("SESSION_SECRET environment variable is required")
+	}
 	store := cookie.NewStore([]byte(sessionSecret))
 	store.Options(sessions.Options{
 		Path:     "/",

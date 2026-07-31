@@ -37,6 +37,13 @@
         "isDefault": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Rebuild Go and run",
+      "type": "shell",
+      "command": "docker compose up -d --build api && docker compose logs -f api",
+      "isBackground": true,
+      "problemMatcher": []
     }
   ]
 }

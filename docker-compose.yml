@@ -26,11 +26,11 @@ services:
     networks:
       - app_net
     environment:
-      DATABASE_URL: "host=postgres port=5432 user=postgres password=postgres dbname=appdb sslmode=disable"
-      SESSION_SECRET: "change-this-secret-in-production"
-      FRONTEND_ORIGIN: "http://localhost:3000"
+      DATABASE_URL: "${DATABASE_URL}"
+      SESSION_SECRET: "${SESSION_SECRET}"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
       GIN_MODE: release
-      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o-mini}"
       SYSTEM_PROMPT: "${SYSTEM_PROMPT:-You are a helpful assistant.}"
