@@ -4,7 +4,7 @@
     {
       "label": "Run all with Docker",
       "type": "shell",
-      "command": "docker compose up",
+      "command": "docker compose up --build",
       "isBackground": true,
       "problemMatcher": []
     },
@@ -42,6 +42,13 @@
       "label": "Rebuild Go and run",
       "type": "shell",
       "command": "docker compose up -d --build api && docker compose logs -f api",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Rebuild Go and debug (Delve)",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build api",
       "isBackground": true,
       "problemMatcher": []
     },

@@ -1,0 +1,15 @@
+# Debug override — use with:
+# docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build api
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.debug
+    restart: "no"
+    ports:
+      - "8080:8080"
+      - "2345:2345"
+    environment:
+      GIN_MODE: debug
+    security_opt:
+      - "seccomp:unconfined"
