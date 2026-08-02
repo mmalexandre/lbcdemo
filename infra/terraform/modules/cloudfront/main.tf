@@ -38,12 +38,23 @@ resource "aws_cloudfront_distribution" "frontend" {
 
   # /api/* → Go API on ALB (no caching, forward all headers/cookies)
   ordered_cache_behavior {
-    path_pattern           = "/api/*"
-    target_origin_id       = "alb-api"
-    viewer_protocol_policy = "https-only"
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    path_pattern             = "/api/*"
+    target_origin_id         = "alb-api"
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
+  }
+
+  # /mlflow/* → MLflow UI on ALB (no caching)
+  ordered_cache_behavior {
+    path_pattern             = "/mlflow*"
+    target_origin_id         = "alb-api"
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
     origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
   }
 

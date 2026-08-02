@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlflow
+  namespace: {{ .Values.namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: lbcdemo
+    alb.ingress.kubernetes.io/healthcheck-path: /mlflow/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /mlflow
+            pathType: Prefix
+            backend:
+              service:
+                name: mlflow
+                port:
+                  number: {{ .Values.service.port }}
