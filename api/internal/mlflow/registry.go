@@ -30,6 +30,15 @@ func NewRegistryClient() *RegistryClient {
 	}
 }
 
+// NewRegistryClientWithURL creates a RegistryClient using the given base URL.
+// Intended for integration tests that point at a local stub server.
+func NewRegistryClientWithURL(baseURL string) *RegistryClient {
+	return &RegistryClient{
+		baseURL:    baseURL,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}
+}
+
 type modelVersionTag struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`

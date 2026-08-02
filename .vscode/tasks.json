@@ -73,11 +73,44 @@
       }
     },
     {
-      "label": "Run Go Tests",
+      "label": "Run Go Unit Tests",
       "type": "shell",
       "command": "go test ./...",
       "options": {
         "cwd": "${workspaceFolder}/api"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Go Integration Tests (MLflow)",
+      "type": "shell",
+      "command": "go test -tags integration ./internal/mlflow/...",
+      "options": {
+        "cwd": "${workspaceFolder}/api"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Go Integration Tests (API)",
+      "type": "shell",
+      "command": "go test -tags integration ./cmd/...",
+      "options": {
+        "cwd": "${workspaceFolder}/api",
+        "env": {
+          "DATABASE_URL": "${env:DATABASE_URL}"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Go Integration Tests (All)",
+      "type": "shell",
+      "command": "go test -tags integration ./...",
+      "options": {
+        "cwd": "${workspaceFolder}/api",
+        "env": {
+          "DATABASE_URL": "${env:DATABASE_URL}"
+        }
       },
       "problemMatcher": []
     }

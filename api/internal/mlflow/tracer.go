@@ -43,6 +43,21 @@ func NewTracer() *Tracer {
 	return t
 }
 
+// NewTracerWithURL creates a Tracer using the given MLflow base URL.
+// Intended for integration tests that point at a local stub server.
+func NewTracerWithURL(baseURL string) *Tracer {
+	t := &Tracer{
+		baseURL:    baseURL,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}
+	expID, err := t.ensureExperiment("go-llm-agent")
+	if err != nil {
+		expID = "0"
+	}
+	t.experimentID = expID
+	return t
+}
+
 // ensureExperiment returns the experiment ID for the given name, creating it if needed.
 func (t *Tracer) ensureExperiment(name string) (string, error) {
 	getURL := fmt.Sprintf("%s/api/2.0/mlflow/experiments/get-by-name?experiment_name=%s",

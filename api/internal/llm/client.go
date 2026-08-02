@@ -32,6 +32,21 @@ func NewClient() *Client {
 	}
 }
 
+// NewClientWithBaseURL creates a Client with a custom API base URL and key.
+// This is primarily useful for tests that point at a local stub server.
+func NewClientWithBaseURL(baseURL, apiKey string) *Client {
+	model := os.Getenv("OPENAI_MODEL")
+	if model == "" {
+		model = "gpt-4o-mini"
+	}
+	cfg := openai.DefaultConfig(apiKey)
+	cfg.BaseURL = baseURL
+	return &Client{
+		client: openai.NewClientWithConfig(cfg),
+		model:  model,
+	}
+}
+
 func (l *Client) Chat(ctx context.Context, systemPrompt, userMessage string) (*Response, error) {
 	if l.client == nil {
 		return nil, fmt.Errorf("LLM client not configured: OPENAI_API_KEY is missing")

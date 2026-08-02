@@ -68,33 +68,19 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
-func main() {
-	// Load .env if present (ignored in production where env vars are set externally)
-	_ = godotenv.Load()
-
-	dsn := getEnv("DATABASE_URL", "")
-	if dsn == "" {
-		log.Fatal("DATABASE_URL environment variable is required")
-	}
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalf("failed to open db: %v", err)
-	}
-	defer db.Close()
-	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to connect to db: %v", err)
-	}
-
-	llmClient := llm.NewClient()
-	mlflowTracer := mlflow.NewTracer()
-	promptRegistry := mlflow.NewRegistryClient()
-
+// newRouter wires up all routes and middleware. It is extracted from main so
+// that integration tests can create a testable *gin.Engine without starting a
+// real listener.
+func newRouter(
+	db *sql.DB,
+	llmClient *llm.Client,
+	mlflowTracer *mlflow.Tracer,
+	promptRegistry *mlflow.RegistryClient,
+	sessionSecret string,
+	frontendOrigin string,
+) *gin.Engine {
 	r := gin.Default()
 
-	sessionSecret := getEnv("SESSION_SECRET", "")
-	if sessionSecret == "" {
-		log.Fatal("SESSION_SECRET environment variable is required")
-	}
 	store := cookie.NewStore([]byte(sessionSecret))
 	store.Options(sessions.Options{
 		Path:     "/",
@@ -104,7 +90,6 @@ func main() {
 	})
 	r.Use(sessions.Sessions("session", store))
 
-	frontendOrigin := getEnv("FRONTEND_ORIGIN", "http://localhost:5173")
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{frontendOrigin},
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
@@ -192,5 +177,36 @@ func main() {
 		})
 	}
 
+	return r
+}
+
+func main() {
+	// Load .env if present (ignored in production where env vars are set externally)
+	_ = godotenv.Load()
+
+	dsn := getEnv("DATABASE_URL", "")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
+	}
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+	if err := db.Ping(); err != nil {
+		log.Fatalf("failed to connect to db: %v", err)
+	}
+
+	sessionSecret := getEnv("SESSION_SECRET", "")
+	if sessionSecret == "" {
+		log.Fatal("SESSION_SECRET environment variable is required")
+	}
+
+	llmClient := llm.NewClient()
+	mlflowTracer := mlflow.NewTracer()
+	promptRegistry := mlflow.NewRegistryClient()
+	frontendOrigin := getEnv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+	r := newRouter(db, llmClient, mlflowTracer, promptRegistry, sessionSecret, frontendOrigin)
 	r.Run(":8080")
 }
