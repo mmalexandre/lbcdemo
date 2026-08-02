@@ -116,6 +116,7 @@ jobs:
           helm repo update
           helm upgrade --install external-secrets external-secrets/external-secrets \
             --namespace kube-system \
+            --set installCRDs=true \
             --wait
 
       - name: Ensure namespace exists
