@@ -39,8 +39,12 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      # Restrict to your repo — update the value in terraform.tfvars
-      values = ["repo:*:ref:refs/heads/main"]
+      # Covers both push-triggered jobs (sub = repo:owner/repo:ref:refs/heads/main)
+      # and environment-scoped deploy jobs (sub = repo:owner/repo:environment:production)
+      values = [
+        "repo:*:ref:refs/heads/main",
+        "repo:*:environment:production",
+      ]
     }
     condition {
       test     = "StringEquals"
