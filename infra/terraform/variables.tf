@@ -21,3 +21,9 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "alb_dns_name" {
+  description = "DNS name of the ALB created by AWS Load Balancer Controller for the API ingress."
+  type        = string
+  default     = ""
+}

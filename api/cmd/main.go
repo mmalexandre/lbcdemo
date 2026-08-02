@@ -119,7 +119,9 @@ func newRouter(
 		AllowCredentials: true,
 	}))
 
-	r.POST("/login", func(c *gin.Context) {
+	api := r.Group("/api")
+
+	api.POST("/login", func(c *gin.Context) {
 		var req LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
@@ -147,14 +149,14 @@ func newRouter(
 		c.JSON(http.StatusOK, gin.H{"username": req.Username})
 	})
 
-	r.POST("/logout", func(c *gin.Context) {
+	api.POST("/logout", func(c *gin.Context) {
 		session := sessions.Default(c)
 		session.Clear()
 		session.Save()
 		c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 	})
 
-	r.GET("/me", func(c *gin.Context) {
+	api.GET("/me", func(c *gin.Context) {
 		session := sessions.Default(c)
 		user := session.Get("user")
 		if user == nil {
@@ -164,7 +166,7 @@ func newRouter(
 		c.JSON(http.StatusOK, gin.H{"username": user})
 	})
 
-	protected := r.Group("/")
+	protected := api.Group("/")
 	protected.Use(authMiddleware())
 	{
 		protected.POST("/prompt", func(c *gin.Context) {

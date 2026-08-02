@@ -228,7 +228,7 @@ func TestIntegration_LoginSuccess(t *testing.T) {
 
 	router := buildTestRouter(t, db)
 
-	w := doJSON(t, router, http.MethodPost, "/login",
+	w := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "integ_user", "password": "pass123"}, nil)
 
 	if w.Code != http.StatusOK {
@@ -249,7 +249,7 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 
 	router := buildTestRouter(t, db)
 
-	w := doJSON(t, router, http.MethodPost, "/login",
+	w := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "integ_user2", "password": "wrong"}, nil)
 
 	if w.Code != http.StatusUnauthorized {
@@ -263,7 +263,7 @@ func TestIntegration_LoginUnknownUser(t *testing.T) {
 
 	router := buildTestRouter(t, db)
 
-	w := doJSON(t, router, http.MethodPost, "/login",
+	w := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "nobody", "password": "x"}, nil)
 
 	if w.Code != http.StatusUnauthorized {
@@ -277,7 +277,7 @@ func TestIntegration_ProtectedEndpointRequiresAuth(t *testing.T) {
 
 	router := buildTestRouter(t, db)
 
-	w := doJSON(t, router, http.MethodPost, "/prompt",
+	w := doJSON(t, router, http.MethodPost, "/api/prompt",
 		map[string]string{"prompt": "hello"}, nil)
 
 	if w.Code != http.StatusUnauthorized {
@@ -294,7 +294,7 @@ func TestIntegration_MeEndpoint(t *testing.T) {
 	router := buildTestRouter(t, db)
 
 	// Login first
-	loginResp := doJSON(t, router, http.MethodPost, "/login",
+	loginResp := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "integ_me", "password": "pass"}, nil)
 	if loginResp.Code != http.StatusOK {
 		t.Fatalf("login failed: %d %s", loginResp.Code, loginResp.Body.String())
@@ -302,7 +302,7 @@ func TestIntegration_MeEndpoint(t *testing.T) {
 	cookies := getCookies(loginResp)
 
 	// /me with session cookie
-	w := doJSON(t, router, http.MethodGet, "/me", nil, cookies)
+	w := doJSON(t, router, http.MethodGet, "/api/me", nil, cookies)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
@@ -319,7 +319,7 @@ func TestIntegration_MeEndpointWithoutAuth(t *testing.T) {
 
 	router := buildTestRouter(t, db)
 
-	w := doJSON(t, router, http.MethodGet, "/me", nil, nil)
+	w := doJSON(t, router, http.MethodGet, "/api/me", nil, nil)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", w.Code)
 	}
@@ -334,7 +334,7 @@ func TestIntegration_LogoutClearsSession(t *testing.T) {
 	router := buildTestRouter(t, db)
 
 	// Login
-	loginResp := doJSON(t, router, http.MethodPost, "/login",
+	loginResp := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "integ_logout", "password": "pass"}, nil)
 	if loginResp.Code != http.StatusOK {
 		t.Fatalf("login failed: %d", loginResp.Code)
@@ -342,10 +342,10 @@ func TestIntegration_LogoutClearsSession(t *testing.T) {
 	cookies := getCookies(loginResp)
 
 	// Logout
-	doJSON(t, router, http.MethodPost, "/logout", nil, cookies)
+	doJSON(t, router, http.MethodPost, "/api/logout", nil, cookies)
 
 	// /me should now be unauthorized (session is cleared, so old cookie is invalid)
-	w := doJSON(t, router, http.MethodGet, "/me", nil, cookies)
+	w := doJSON(t, router, http.MethodGet, "/api/me", nil, cookies)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 after logout, got %d", w.Code)
 	}
@@ -360,7 +360,7 @@ func TestIntegration_PromptEndpointReturnsReply(t *testing.T) {
 	router := buildTestRouter(t, db)
 
 	// Login
-	loginResp := doJSON(t, router, http.MethodPost, "/login",
+	loginResp := doJSON(t, router, http.MethodPost, "/api/login",
 		map[string]string{"username": "integ_prompt", "password": "pass"}, nil)
 	if loginResp.Code != http.StatusOK {
 		t.Fatalf("login failed: %d", loginResp.Code)
@@ -368,7 +368,7 @@ func TestIntegration_PromptEndpointReturnsReply(t *testing.T) {
 	cookies := getCookies(loginResp)
 
 	// Send prompt
-	w := doJSON(t, router, http.MethodPost, "/prompt",
+	w := doJSON(t, router, http.MethodPost, "/api/prompt",
 		map[string]string{"prompt": "Hello, world!"}, cookies)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())

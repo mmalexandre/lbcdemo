@@ -241,9 +241,8 @@ jobs:
       - name: Build React app
         run: npm run build
         env:
-          # Point the React app at the ALB URL for API calls.
-          # Set this GitHub Actions variable after provisioning the ALB.
-          VITE_API_URL: ${{ vars.API_ALB_URL }}
+          # API calls go through CloudFront (/api/*) to avoid mixed-content.
+          VITE_API_URL: https://${{ vars.CLOUDFRONT_DOMAIN }}/api
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

@@ -2,6 +2,7 @@ variable "project"                         { type = string }
 variable "frontend_bucket_id"              { type = string }
 variable "frontend_bucket_arn"             { type = string }
 variable "frontend_bucket_regional_domain" { type = string }
+variable "alb_dns_name"                    { type = string }
 
 # ── Origin Access Control (OAC) for private S3 bucket ────────────────────────
 resource "aws_cloudfront_origin_access_control" "frontend" {
@@ -22,6 +23,28 @@ resource "aws_cloudfront_distribution" "frontend" {
     domain_name              = var.frontend_bucket_regional_domain
     origin_id                = "s3-${var.frontend_bucket_id}"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
+    domain_name = var.alb_dns_name
+    origin_id   = "alb-api"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # /api/* → Go API on ALB (no caching, forward all headers/cookies)
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "alb-api"
+    viewer_protocol_policy = "https-only"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    cache_policy_id        = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
   }
 
   default_cache_behavior {
