@@ -45,7 +45,6 @@ spec:
             - --backend-store-uri=$(MLFLOW_BACKEND_STORE_URI)
             - --artifacts-destination=$(MLFLOW_ARTIFACTS_DESTINATION)
             - --serve-artifacts
-            - --static-prefix=/mlflow
           envFrom:
             - configMapRef:
                 name: mlflow-config
@@ -58,13 +57,13 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /mlflow/health
+              path: /health
               port: {{ .Values.service.port }}
             initialDelaySeconds: 10
             periodSeconds: 15
           livenessProbe:
             httpGet:
-              path: /mlflow/health
+              path: /health
               port: {{ .Values.service.port }}
             initialDelaySeconds: 30
             periodSeconds: 30
