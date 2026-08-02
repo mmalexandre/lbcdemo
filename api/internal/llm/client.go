@@ -1,34 +1,38 @@
-package main
+package llm
 
 import (
 	"context"
 	"fmt"
+	"os"
 
 	openai "github.com/sashabaranov/go-openai"
 )
 
-type LLMClient struct {
+type Client struct {
 	client *openai.Client
 	model  string
 }
 
-type LLMResponse struct {
+type Response struct {
 	Content      string
 	Model        string
 	InputTokens  int
 	OutputTokens int
 }
 
-func NewLLMClient() *LLMClient {
-	apiKey := getEnv("OPENAI_API_KEY", "")
-	model := getEnv("OPENAI_MODEL", "gpt-4o-mini")
-	return &LLMClient{
+func NewClient() *Client {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	model := os.Getenv("OPENAI_MODEL")
+	if model == "" {
+		model = "gpt-4o-mini"
+	}
+	return &Client{
 		client: openai.NewClient(apiKey),
 		model:  model,
 	}
 }
 
-func (l *LLMClient) Chat(ctx context.Context, systemPrompt, userMessage string) (*LLMResponse, error) {
+func (l *Client) Chat(ctx context.Context, systemPrompt, userMessage string) (*Response, error) {
 	if l.client == nil {
 		return nil, fmt.Errorf("LLM client not configured: OPENAI_API_KEY is missing")
 	}
@@ -50,7 +54,7 @@ func (l *LLMClient) Chat(ctx context.Context, systemPrompt, userMessage string) 
 		return nil, fmt.Errorf("openai returned no choices")
 	}
 
-	return &LLMResponse{
+	return &Response{
 		Content:      resp.Choices[0].Message.Content,
 		Model:        resp.Model,
 		InputTokens:  resp.Usage.PromptTokens,

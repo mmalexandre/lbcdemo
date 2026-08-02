@@ -7,6 +7,9 @@ import (
 	"os"
 	"time"
 
+	"api/internal/llm"
+	"api/internal/mlflow"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -40,7 +43,7 @@ func getEnv(key, fallback string) string {
 // If MLFLOW_PROMPT_URI is set (e.g. "prompts:/assistant/production"), the
 // template is fetched from the MLflow Prompt Registry. Otherwise it falls back
 // to the SYSTEM_PROMPT env var (default: "You are a helpful assistant.").
-func loadSystemPrompt(registry *PromptRegistryClient) string {
+func loadSystemPrompt(registry *mlflow.RegistryClient) string {
 	if uri := getEnv("MLFLOW_PROMPT_URI", ""); uri != "" {
 		template, err := registry.LoadPrompt(uri)
 		if err != nil {
@@ -82,9 +85,9 @@ func main() {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 
-	llmClient := NewLLMClient()
-	mlflowTracer := NewMLflowTracer()
-	promptRegistry := NewPromptRegistryClient()
+	llmClient := llm.NewClient()
+	mlflowTracer := mlflow.NewTracer()
+	promptRegistry := mlflow.NewRegistryClient()
 
 	r := gin.Default()
 

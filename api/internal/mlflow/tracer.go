@@ -1,4 +1,4 @@
-package main
+package mlflow
 
 import (
 	"bytes"
@@ -7,11 +7,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
-// MLflowTracer logs LLM call traces to the MLflow tracking server via REST API.
-type MLflowTracer struct {
+// Tracer logs LLM call traces to the MLflow tracking server via REST API.
+type Tracer struct {
 	baseURL      string
 	experimentID string
 	httpClient   *http.Client
@@ -22,9 +23,12 @@ type traceKV struct {
 	Value string `json:"value"`
 }
 
-func NewMLflowTracer() *MLflowTracer {
-	baseURL := getEnv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-	t := &MLflowTracer{
+func NewTracer() *Tracer {
+	baseURL := os.Getenv("MLFLOW_TRACKING_URI")
+	if baseURL == "" {
+		baseURL = "http://mlflow:5000"
+	}
+	t := &Tracer{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
@@ -40,7 +44,7 @@ func NewMLflowTracer() *MLflowTracer {
 }
 
 // ensureExperiment returns the experiment ID for the given name, creating it if needed.
-func (t *MLflowTracer) ensureExperiment(name string) (string, error) {
+func (t *Tracer) ensureExperiment(name string) (string, error) {
 	getURL := fmt.Sprintf("%s/api/2.0/mlflow/experiments/get-by-name?experiment_name=%s",
 		t.baseURL, url.QueryEscape(name))
 
@@ -85,7 +89,7 @@ func (t *MLflowTracer) ensureExperiment(name string) (string, error) {
 
 // LogLLMTrace records a completed LLM call as a trace in MLflow.
 // It is safe to call concurrently and fails silently (logging errors).
-func (t *MLflowTracer) LogLLMTrace(
+func (t *Tracer) LogLLMTrace(
 	user, prompt, reply, model string,
 	inputTokens, outputTokens int,
 	startTime time.Time,
