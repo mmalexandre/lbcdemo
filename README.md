@@ -2,10 +2,18 @@
 
 ## Includes:
 
-- A Go API back-end with Gin routing
+- A Go API back-end
 - A Postgres DB
-- A customized AI agent with RAG
-- MLFlow
+- Gin routing
+- Session management
+- Connection to OpenAI
+- Tracing with MLFlow and using a registered prompt
+- Unit tests
+- Integration tests
+- Docker (local dev installation) + debugging set up
+- VScode tasks to run common tasks
+
+- A React client chat application
 
 ## Running
 
