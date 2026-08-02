@@ -118,6 +118,11 @@ jobs:
             --namespace kube-system \
             --set installCRDs=true \
             --wait
+          # Wait for CRDs to be fully established in the API server before proceeding
+          kubectl wait --for=condition=established --timeout=120s \
+            crd/clustersecretstores.external-secrets.io \
+            crd/externalsecrets.external-secrets.io \
+            crd/secretstores.external-secrets.io
 
       - name: Ensure namespace exists
         run: kubectl apply -f k8s/namespace.yaml
