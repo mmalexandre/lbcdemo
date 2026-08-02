@@ -182,7 +182,7 @@ jobs:
         run: |
           helm upgrade --install mlflow helm/mlflow \
             --namespace ${{ env.NAMESPACE }} \
-            --set config.MLFLOW_BACKEND_STORE_URI="${{ vars.MLFLOW_BACKEND_STORE_URI }}" \
+            --set config.MLFLOW_BACKEND_STORE_URI="${{ secrets.MLFLOW_BACKEND_STORE_URI }}" \
             --set config.MLFLOW_ARTIFACTS_DESTINATION="s3://${{ vars.MLFLOW_ARTIFACTS_BUCKET }}" \
             --set config.MLFLOW_DEFAULT_ARTIFACT_ROOT="s3://${{ vars.MLFLOW_ARTIFACTS_BUCKET }}" \
             --set iamRoleArn=${{ vars.MLFLOW_S3_ROLE_ARN }} \
