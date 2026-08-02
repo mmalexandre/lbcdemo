@@ -1,0 +1,258 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent deploys to the same environment.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: lbcdemo-cluster
+  NAMESPACE: lbcdemo
+
+permissions:
+  id-token: write   # Required for OIDC token exchange with AWS
+  contents: read
+
+jobs:
+  # ── 1. Tests (parallel) ──────────────────────────────────────────────────────
+  api-test:
+    name: Go tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api/go.mod
+          cache: true
+      - run: go test ./...
+
+  frontend-test:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  # ── 2. Build & push Docker images to ECR ─────────────────────────────────────
+  build-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    needs: [api-test, frontend-test]
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: api
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/lbcdemo-api:${{ steps.meta.outputs.tag }}
+            ${{ steps.ecr-login.outputs.registry }}/lbcdemo-api:latest
+
+      # Optional: scan image for CVEs before deploying
+      - name: Scan API image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.ecr-login.outputs.registry }}/lbcdemo-api:${{ steps.meta.outputs.tag }}
+          format: table
+          severity: CRITICAL
+          exit-code: 1   # Fail the build on critical CVEs
+
+  # ── 3. Deploy to EKS via Helm ─────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to EKS
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Install / upgrade External Secrets Operator (idempotent)
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo update
+          helm upgrade --install eso external-secrets/external-secrets \
+            --namespace external-secrets \
+            --create-namespace \
+            --wait
+
+      - name: Ensure namespace exists
+        run: kubectl apply -f k8s/namespace.yaml
+
+      - name: ECR registry URL
+        id: ecr
+        run: |
+          echo "registry=$(aws ecr describe-repositories \
+            --repository-names lbcdemo-api \
+            --query 'repositories[0].repositoryUri' \
+            --output text | sed 's|/lbcdemo-api||')" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy API chart
+        run: |
+          helm upgrade --install api helm/api \
+            --namespace ${{ env.NAMESPACE }} \
+            --create-namespace \
+            --set image.repository=${{ steps.ecr.outputs.registry }}/lbcdemo-api \
+            --set image.tag=${{ needs.build-push.outputs.image-tag }} \
+            --set externalSecrets.iamRoleArn=${{ vars.ESO_ROLE_ARN }} \
+            --set externalSecrets.awsRegion=${{ env.AWS_REGION }} \
+            --set config.FRONTEND_ORIGIN=https://${{ vars.CLOUDFRONT_DOMAIN }} \
+            --wait \
+            --timeout 5m
+
+      - name: Verify rollout
+        run: kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=5m
+
+  # ── 4. Deploy MLflow to EKS ──────────────────────────────────────────────────
+  deploy-mlflow:
+    name: Deploy MLflow to EKS
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Deploy MLflow chart
+        run: |
+          helm upgrade --install mlflow helm/mlflow \
+            --namespace ${{ env.NAMESPACE }} \
+            --set config.MLFLOW_BACKEND_STORE_URI="${{ vars.MLFLOW_BACKEND_STORE_URI }}" \
+            --set config.MLFLOW_ARTIFACTS_DESTINATION="s3://${{ vars.MLFLOW_ARTIFACTS_BUCKET }}" \
+            --set config.MLFLOW_DEFAULT_ARTIFACT_ROOT="s3://${{ vars.MLFLOW_ARTIFACTS_BUCKET }}" \
+            --set iamRoleArn=${{ vars.MLFLOW_S3_ROLE_ARN }} \
+            --set awsRegion=${{ env.AWS_REGION }} \
+            --wait \
+            --timeout 5m
+
+  # ── 5. Deploy monitoring stack ────────────────────────────────────────────────
+  deploy-monitoring:
+    name: Deploy Prometheus + Grafana
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Add Prometheus community Helm repo
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+
+      - name: Deploy monitoring chart
+        run: |
+          helm dependency update helm/monitoring
+          helm upgrade --install monitoring helm/monitoring \
+            --namespace monitoring \
+            --create-namespace \
+            --wait \
+            --timeout 10m
+
+  # ── 6. Build & deploy frontend to S3 + CloudFront ────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend (S3 + CloudFront)
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Build React app
+        run: npm run build
+        env:
+          # Point the React app at the ALB URL for API calls.
+          # Set this GitHub Actions variable after provisioning the ALB.
+          VITE_API_URL: ${{ vars.API_ALB_URL }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://${{ vars.FRONTEND_BUCKET }} \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          # index.html must not be cached aggressively (browsers need fresh copies)
+          aws s3 cp dist/index.html s3://${{ vars.FRONTEND_BUCKET }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

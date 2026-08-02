@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-api
+  namespace: lbcdemo
+  labels:
+    grafana_dashboard: "1"
+data:
+  dashboard.json: |
+    {
+      "title": "lbcdemo API",
+      "uid": "lbcdemo-api",
+      "schemaVersion": 36,
+      "panels": [
+        {
+          "title": "HTTP Request Rate",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(http_requests_total{namespace=\"lbcdemo\"}[5m])) by (handler, status)",
+            "legendFormat": "{{handler}} {{status}}"
+          }]
+        },
+        {
+          "title": "HTTP p95 Latency (s)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"lbcdemo\"}[5m])) by (le, handler))",
+            "legendFormat": "p95 {{handler}}"
+          }]
+        },
+        {
+          "title": "Pod CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"lbcdemo\", container=\"api\"}[5m])) by (pod)",
+            "legendFormat": "{{pod}}"
+          }]
+        },
+        {
+          "title": "Pod Memory Usage (bytes)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "container_memory_working_set_bytes{namespace=\"lbcdemo\", container=\"api\"}",
+            "legendFormat": "{{pod}}"
+          }]
+        }
+      ]
+    }

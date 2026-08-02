@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -51,6 +52,10 @@ func (l *Client) Chat(ctx context.Context, systemPrompt, userMessage string) (*R
 	if l.client == nil {
 		return nil, fmt.Errorf("LLM client not configured: OPENAI_API_KEY is missing")
 	}
+
+	// Cap each OpenAI call to 30 seconds to prevent runaway requests.
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
 	req := openai.ChatCompletionRequest{
 		Model: l.model,

@@ -1,0 +1,34 @@
+kube-prometheus-stack:
+  grafana:
+    enabled: true
+    adminPassword: "changeme"   # Override via --set or Secrets Manager in production
+    service:
+      type: ClusterIP           # Expose via kubectl port-forward or an Ingress
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: lbcdemo
+            orgId: 1
+            folder: lbcdemo
+            type: file
+            disableDeletion: false
+            options:
+              path: /var/lib/grafana/dashboards/lbcdemo
+    dashboards:
+      lbcdemo:
+        api-overview:
+          # Inline JSON ConfigMap – see templates/grafana-dashboard.yaml
+          configMapRef:
+            name: grafana-dashboard-api
+            key: dashboard.json
+
+  prometheus:
+    prometheusSpec:
+      # Pick up ServiceMonitors from all namespaces
+      serviceMonitorSelectorNilUsesHelmValues: false
+      serviceMonitorSelector: {}
+      serviceMonitorNamespaceSelector: {}
+
+  alertmanager:
+    enabled: false   # Enable and configure receivers when needed

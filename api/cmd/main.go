@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"api/internal/llm"
@@ -81,12 +84,31 @@ func newRouter(
 ) *gin.Engine {
 	r := gin.Default()
 
+	// Health probe — used by Kubernetes liveness and readiness checks.
+	r.GET("/healthz", func(c *gin.Context) {
+		if err := db.PingContext(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	store := cookie.NewStore([]byte(sessionSecret))
+	// In production (GIN_MODE=release) the React app is served from a different
+	// origin (CloudFront) so cookies must be SameSite=None; Secure.
+	// In development keep Lax to avoid needing HTTPS locally.
+	sameSite := http.SameSiteLaxMode
+	secureCookie := false
+	if os.Getenv("GIN_MODE") == "release" {
+		sameSite = http.SameSiteNoneMode
+		secureCookie = true
+	}
 	store.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   3600 * 24,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   secureCookie,
+		SameSite: sameSite,
 	})
 	r.Use(sessions.Sessions("session", store))
 
@@ -208,5 +230,30 @@ func main() {
 	frontendOrigin := getEnv("FRONTEND_ORIGIN", "http://localhost:5173")
 
 	r := newRouter(db, llmClient, mlflowTracer, promptRegistry, sessionSecret, frontendOrigin)
-	r.Run(":8080")
+
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
+
+	// Start in a goroutine so we can listen for shutdown signals below.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+	log.Println("server listening on :8080")
+
+	// Graceful shutdown: wait for SIGTERM (Kubernetes) or SIGINT (Ctrl-C).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+	log.Println("shutting down — draining active requests...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("forced shutdown: %v", err)
+	}
+	log.Println("server stopped")
 }

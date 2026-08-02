@@ -1,0 +1,20 @@
+# ServiceMonitor so Prometheus scrapes the Go API's /metrics endpoint.
+# Requires prometheus/client_golang to be wired into main.go.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  namespace: lbcdemo
+  labels:
+    release: monitoring   # must match kube-prometheus-stack's release label
+spec:
+  selector:
+    matchLabels:
+      app: api
+  namespaceSelector:
+    matchNames:
+      - lbcdemo
+  endpoints:
+    - port: "8080"
+      path: /metrics
+      interval: 30s

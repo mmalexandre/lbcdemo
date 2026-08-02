@@ -1,0 +1,51 @@
+# Image pulled from ECR.  Override image.tag with the commit SHA at deploy time.
+image:
+  repository: ""          # set via --set or CI: <account>.dkr.ecr.<region>.amazonaws.com/lbcdemo-api
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+namespace: lbcdemo
+
+service:
+  port: 8080
+
+ingress:
+  enabled: true
+  # Hostname for the ALB (set to your actual domain or leave blank for auto-assigned DNS)
+  host: ""
+  # ARN of an ACM certificate – required for HTTPS; leave blank to allow HTTP only
+  certificateArn: ""
+  # Idle timeout for the ALB in seconds
+  idleTimeout: "60"
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Non-secret config injected as environment variables from ConfigMap
+config:
+  GIN_MODE: "release"
+  OPENAI_MODEL: "gpt-4o-mini"
+  MLFLOW_TRACKING_URI: "http://mlflow.lbcdemo.svc.cluster.local:5000"
+  MLFLOW_PROMPT_URI: "prompts:/cardgame/production"
+  # Set FRONTEND_ORIGIN to your CloudFront URL after provisioning
+  FRONTEND_ORIGIN: ""
+
+# External Secrets Operator – SecretStore
+externalSecrets:
+  # IAM role ARN bound to the ESO service account via IRSA
+  iamRoleArn: ""      # e.g. arn:aws:iam::123456789012:role/lbcdemo-eso
+  awsRegion: "us-east-1"
+  # Secrets Manager path prefix
+  secretPath: "lbcdemo"

@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 
+// In production (S3/CloudFront) the app is served from a different origin than
+// the API (ALB).  VITE_API_URL is injected at build time by GitHub Actions.
+// In dev it is empty so requests fall through to the Vite proxy.
+declare const __API_URL__: string
+const API = typeof __API_URL__ !== 'undefined' ? __API_URL__ : ''
+
 interface Message {
   role: 'user' | 'assistant'
   text: string
@@ -17,7 +23,7 @@ function LoginPage({ onLogin }: { onLogin: (username: string) => void }) {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/login', {
+      const res = await fetch(`${API}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -124,7 +130,7 @@ function ChatPage({ username, onLogout }: { username: string; onLogout: () => vo
     setLoading(true)
 
     try {
-      const res = await fetch('/prompt', {
+      const res = await fetch(`${API}/prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -193,7 +199,7 @@ function App() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    fetch('/me', { credentials: 'include' })
+    fetch(`${API}/me`, { credentials: 'include' })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.username) setUsername(data.username)
@@ -202,7 +208,7 @@ function App() {
   }, [])
 
   const handleLogout = async () => {
-    await fetch('/logout', { method: 'POST', credentials: 'include' })
+    await fetch(`${API}/logout`, { method: 'POST', credentials: 'include' })
     setUsername(null)
   }
 

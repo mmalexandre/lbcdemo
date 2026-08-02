@@ -1,0 +1,29 @@
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: "v2.22.0"
+  pullPolicy: IfNotPresent
+
+namespace: lbcdemo
+
+replicaCount: 1
+
+service:
+  port: 5000
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+config:
+  # Set by Terraform outputs; override at deploy time
+  MLFLOW_BACKEND_STORE_URI: ""    # postgresql://user:pass@<rds-endpoint>:5432/mlflow
+  MLFLOW_ARTIFACTS_DESTINATION: ""  # s3://<artifacts-bucket>
+  MLFLOW_DEFAULT_ARTIFACT_ROOT: ""  # s3://<artifacts-bucket>
+
+# IAM role ARN for IRSA – must have s3:GetObject/PutObject on the artifacts bucket
+iamRoleArn: ""
+awsRegion: "us-east-1"
