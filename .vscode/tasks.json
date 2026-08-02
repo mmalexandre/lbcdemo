@@ -71,6 +71,15 @@
         "panel": "new",
         "focus": true
       }
+    },
+    {
+      "label": "Run Go Tests",
+      "type": "shell",
+      "command": "go test ./...",
+      "options": {
+        "cwd": "${workspaceFolder}/api"
+      },
+      "problemMatcher": []
     }
   ]
 }
