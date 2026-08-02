@@ -5,7 +5,6 @@ metadata:
   name: api
   namespace: {{ .Values.namespace }}
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds={{ .Values.ingress.idleTimeout }}
@@ -21,6 +20,7 @@ metadata:
     # Basic rate-limiting: 100 requests per second per IP (requires AWS WAF)
     # alb.ingress.kubernetes.io/wafv2-acl-arn: <WAF_ACL_ARN>
 spec:
+  ingressClassName: alb
   {{- if .Values.ingress.host }}
   rules:
     - host: {{ .Values.ingress.host }}

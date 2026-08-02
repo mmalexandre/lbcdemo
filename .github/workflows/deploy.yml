@@ -130,10 +130,8 @@ jobs:
       - name: ECR registry URL
         id: ecr
         run: |
-          echo "registry=$(aws ecr describe-repositories \
-            --repository-names lbcdemo-api \
-            --query 'repositories[0].repositoryUri' \
-            --output text | sed 's|/lbcdemo-api||')" >> "$GITHUB_OUTPUT"
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          echo "registry=${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com" >> "$GITHUB_OUTPUT"
 
       - name: Apply ESO resources (ClusterSecretStore + ExternalSecret)
         run: |
