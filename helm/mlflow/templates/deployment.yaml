@@ -45,6 +45,7 @@ spec:
             - --backend-store-uri=$(MLFLOW_BACKEND_STORE_URI)
             - --artifacts-destination=$(MLFLOW_ARTIFACTS_DESTINATION)
             - --serve-artifacts
+            - --static-prefix=/mlflow
           envFrom:
             - configMapRef:
                 name: mlflow-config
