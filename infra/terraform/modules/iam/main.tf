@@ -13,6 +13,18 @@ locals {
   oidc_host = replace(var.eks_oidc_provider_url, "https://", "")
 }
 
+# ── 0. GitHub Actions OIDC identity provider ─────────────────────────────────
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+
+  lifecycle {
+    # Already created manually; importing via this resource.
+    prevent_destroy = true
+  }
+}
+
 # ── 1. GitHub Actions OIDC role ───────────────────────────────────────────────
 # Allows GitHub Actions to push to ECR, deploy to EKS, and sync to S3 without
 # storing long-lived AWS credentials as GitHub secrets.
