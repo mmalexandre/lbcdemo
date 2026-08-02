@@ -19,10 +19,24 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+      initContainers:
+        - name: install-psycopg2
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["pip", "install", "--target=/extra-packages", "psycopg2-binary"]
+          volumeMounts:
+            - name: extra-packages
+              mountPath: /extra-packages
+      volumes:
+        - name: extra-packages
+          emptyDir: {}
       containers:
         - name: mlflow
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PYTHONPATH
+              value: /extra-packages
           command:
             - mlflow
             - server
@@ -34,6 +48,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: mlflow-config
+          volumeMounts:
+            - name: extra-packages
+              mountPath: /extra-packages
           ports:
             - containerPort: {{ .Values.service.port }}
           resources:
