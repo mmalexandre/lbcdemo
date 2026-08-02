@@ -58,14 +58,14 @@
     {
       "label": "Recompile Go and restart Delve",
       "type": "shell",
-      "command": "docker exec gomodule1-api-1 sh -c \"kill -9 \$(pgrep dlv) 2>/dev/null; CGO_ENABLED=0 GOOS=linux go build -gcflags='all=-N -l' -o server . && dlv exec ./server --listen=:2345 --headless=true --api-version=2 --accept-multiclient --continue &\"",
+      "command": "docker exec lbcdemo-api-1 sh -c \"kill -9 \$(pgrep dlv) 2>/dev/null; CGO_ENABLED=0 GOOS=linux go build -gcflags='all=-N -l' -o server . && dlv exec ./server --listen=:2345 --headless=true --api-version=2 --accept-multiclient --continue &\"",
       "isBackground": true,
       "problemMatcher": []
     },
     {
       "label": "Open psql",
       "type": "shell",
-      "command": "docker exec -it gomodule1-postgres-1 psql -U postgres -d appdb",
+      "command": "docker exec -it lbcdemo-postgres-1 psql -U postgres -d appdb",
       "presentation": {
         "reveal": "always",
         "panel": "new",
