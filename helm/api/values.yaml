@@ -44,6 +44,10 @@ config:
 
 # External Secrets Operator – SecretStore
 externalSecrets:
+  # Set to true to let Helm manage ClusterSecretStore + ExternalSecret.
+  # In CI these are applied via kubectl (after CRDs are confirmed ready)
+  # to avoid Helm REST-mapper failures on cross-chart CRD dependencies.
+  enabled: false
   # IAM role ARN bound to the ESO service account via IRSA
   iamRoleArn: ""      # e.g. arn:aws:iam::123456789012:role/lbcdemo-eso
   awsRegion: "us-east-1"

@@ -135,6 +135,17 @@ jobs:
             --query 'repositories[0].repositoryUri' \
             --output text | sed 's|/lbcdemo-api||')" >> "$GITHUB_OUTPUT"
 
+      - name: Apply ESO resources (ClusterSecretStore + ExternalSecret)
+        run: |
+          helm template api helm/api \
+            --namespace ${{ env.NAMESPACE }} \
+            --set externalSecrets.enabled=true \
+            --set externalSecrets.iamRoleArn=${{ vars.ESO_ROLE_ARN }} \
+            --set externalSecrets.awsRegion=${{ env.AWS_REGION }} \
+            --set externalSecrets.secretPath=lbcdemo \
+            --show-only templates/externalsecret.yaml \
+          | kubectl apply -f -
+
       - name: Deploy API chart
         run: |
           helm upgrade --install api helm/api \
