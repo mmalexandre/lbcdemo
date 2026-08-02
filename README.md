@@ -62,3 +62,14 @@ To go back to the normal (non-debug) API:
 ```bash
 docker compose up -d --build --force-recreate api
 ```
+
+## Production (AWS)
+
+The app is deployed to AWS via GitHub Actions on every push to `main`. See [doc/deployment.md](doc/deployment.md) for the full setup guide.
+
+| URL | Description |
+|-----|-------------|
+| https://d13vttbhe09whf.cloudfront.net | React frontend |
+| https://d13vttbhe09whf.cloudfront.net/mlflow | MLflow UI |
+
+> **API** is proxied through CloudFront at `/api/*` (same-origin HTTPS — no mixed-content issues).

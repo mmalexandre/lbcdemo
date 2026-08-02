@@ -135,10 +135,13 @@ helm upgrade --install api helm/api -n lbcdemo \
   --set image.repository=587472608760.dkr.ecr.us-east-1.amazonaws.com/lbcdemo-api
 ```
 
-### Access MLflow UI (port-forward)
+### Access MLflow UI
+MLflow is publicly accessible at **https://d13vttbhe09whf.cloudfront.net/mlflow**.
+
+For direct cluster access (bypasses CloudFront):
 ```bash
 kubectl port-forward -n lbcdemo svc/mlflow 5000:5000
-# then open http://localhost:5000
+# then open http://localhost:5000/mlflow
 ```
 
 ### Access Grafana (port-forward)
