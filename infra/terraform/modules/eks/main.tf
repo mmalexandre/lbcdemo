@@ -107,17 +107,8 @@ resource "aws_eks_node_group" "default" {
   tags = { Project = var.project }
 }
 
-# ── Security group for nodes (referenced by RDS module) ───────────────────────
-data "aws_security_group" "nodes" {
-  filter {
-    name   = "tag:eks:nodegroup-name"
-    values = ["${var.project}-nodes"]
-  }
-  depends_on = [aws_eks_node_group.default]
-}
-
-output "cluster_name"             { value = aws_eks_cluster.this.name }
-output "cluster_endpoint"         { value = aws_eks_cluster.this.endpoint }
-output "oidc_provider_arn"        { value = aws_iam_openid_connect_provider.eks.arn }
-output "oidc_provider_url"        { value = aws_iam_openid_connect_provider.eks.url }
-output "node_security_group_id"   { value = data.aws_security_group.nodes.id }
+output "cluster_name"           { value = aws_eks_cluster.this.name }
+output "cluster_endpoint"       { value = aws_eks_cluster.this.endpoint }
+output "oidc_provider_arn"      { value = aws_iam_openid_connect_provider.eks.arn }
+output "oidc_provider_url"      { value = aws_iam_openid_connect_provider.eks.url }
+output "node_security_group_id" { value = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id }

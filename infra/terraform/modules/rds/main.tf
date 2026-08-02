@@ -2,7 +2,10 @@ variable "project"         { type = string }
 variable "vpc_id"          { type = string }
 variable "subnet_ids"      { type = list(string) }
 variable "eks_node_sg_id"  { type = string }
-variable "db_password"     { type = string; sensitive = true }
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
 
 # ── Subnet group ──────────────────────────────────────────────────────────────
 resource "aws_db_subnet_group" "this" {
@@ -59,5 +62,8 @@ resource "aws_db_instance" "this" {
   tags = { Project = var.project }
 }
 
-output "endpoint" { value = aws_db_instance.this.endpoint; sensitive = true }
-output "db_name"  { value = aws_db_instance.this.db_name }
+output "endpoint" {
+  value     = aws_db_instance.this.endpoint
+  sensitive = true
+}
+output "db_name" { value = aws_db_instance.this.db_name }
