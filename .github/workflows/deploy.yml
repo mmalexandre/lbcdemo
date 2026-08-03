@@ -188,7 +188,7 @@ jobs:
             --set iamRoleArn=${{ vars.MLFLOW_S3_ROLE_ARN }} \
             --set awsRegion=${{ env.AWS_REGION }} \
             --wait \
-            --timeout 5m
+            --timeout 10m
 
   # ── 5. Deploy monitoring stack — temporarily disabled during CI debugging ─────
   # deploy-monitoring:
