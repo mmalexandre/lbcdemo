@@ -31,7 +31,6 @@ Thumbs.db
 *.swo
 
 # Terraform
-infra/terraform/terraform.tfvars
 infra/terraform/.terraform/
 infra/terraform/.terraform.lock.hcl
 infra/terraform/*.tfstate
