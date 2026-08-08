@@ -15,6 +15,21 @@
 
 - A React client chat application
 
+## Try the deployed Chat Demo
+
+Quick start:
+
+1. Open https://d13vttbhe09whf.cloudfront.net/
+2. Log in with `demo` / `demo`.
+3. Enter any prompt in the chat, like you would do with ChatGPT.
+4. App sends LLM reply using MLFlow template as system prompt.
+
+Important behavior to know:
+
+- Each chat request is independent (no conversation memory between requests).
+- Responses are generated using a prompt template managed in MLflow.
+- Prompt and trace data are logged in MLflow so you can inspect runs and prompt versions.
+
 ## Running
 
 ### Prerequisites
