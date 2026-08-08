@@ -9,6 +9,9 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: lbcdemo
     alb.ingress.kubernetes.io/group.order: "10"
+    {{- if .Values.ingress.subnetIds }}
+    alb.ingress.kubernetes.io/subnets: {{ range $i, $subnet := .Values.ingress.subnetIds }}{{ if $i }},{{ end }}{{ $subnet }}{{ end }}
+    {{- end }}
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds={{ .Values.ingress.idleTimeout }}
     # Redirect HTTP → HTTPS when a certificate is provided
     {{- if .Values.ingress.certificateArn }}

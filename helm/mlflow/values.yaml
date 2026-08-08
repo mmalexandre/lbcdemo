@@ -5,6 +5,9 @@ image:
 
 namespace: lbcdemo
 
+ingress:
+  subnetIds: []
+
 replicaCount: 1
 
 service:

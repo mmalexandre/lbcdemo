@@ -8,6 +8,9 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: lbcdemo
     alb.ingress.kubernetes.io/group.order: "1"
+    {{- if .Values.ingress.subnetIds }}
+    alb.ingress.kubernetes.io/subnets: {{ range $i, $subnet := .Values.ingress.subnetIds }}{{ if $i }},{{ end }}{{ $subnet }}{{ end }}
+    {{- end }}
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
     alb.ingress.kubernetes.io/healthy-threshold-count: "2"
