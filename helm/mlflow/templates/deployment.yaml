@@ -7,6 +7,8 @@ metadata:
     app: mlflow
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mlflow
@@ -42,10 +44,8 @@ spec:
             - server
             - --host=0.0.0.0
             - --port={{ .Values.service.port }}
-            - --backend-store-uri=$(MLFLOW_BACKEND_STORE_URI)
-            - --artifacts-destination=$(MLFLOW_ARTIFACTS_DESTINATION)
+            - --workers=1
             - --serve-artifacts
-            - --static-prefix=/mlflow
           envFrom:
             - configMapRef:
                 name: mlflow-config
@@ -56,17 +56,21 @@ spec:
             - containerPort: {{ .Values.service.port }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: {{ .Values.service.port }}
-            initialDelaySeconds: 60
-            periodSeconds: 15
-            failureThreshold: 10
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: {{ .Values.service.port }}
-            initialDelaySeconds: 90
+            initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 5

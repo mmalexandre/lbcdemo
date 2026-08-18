@@ -6,7 +6,10 @@ image:
 namespace: lbcdemo
 
 ingress:
-  subnetIds: []
+  subnetIds:
+    - subnet-000cd47e83639d371  # us-east-1a
+    - subnet-0da4e285932911db1  # us-east-1d
+    - subnet-04febb7bef1d194d8  # us-east-1c
 
 replicaCount: 1
 
@@ -15,8 +18,8 @@ service:
 
 resources:
   requests:
-    cpu: 250m
-    memory: 1Gi
+    cpu: 100m
+    memory: 256Mi
   limits:
     cpu: 1000m
     memory: 2Gi
@@ -26,6 +29,8 @@ config:
   MLFLOW_BACKEND_STORE_URI: ""    # postgresql://user:pass@<rds-endpoint>:5432/mlflow
   MLFLOW_ARTIFACTS_DESTINATION: ""  # s3://<artifacts-bucket>
   MLFLOW_DEFAULT_ARTIFACT_ROOT: ""  # s3://<artifacts-bucket>
+  MLFLOW_STATIC_PREFIX: "/mlflow"
+  MLFLOW_SERVER_ALLOWED_HOSTS: "*"
 
 # IAM role ARN for IRSA – must have s3:GetObject/PutObject on the artifacts bucket
 iamRoleArn: ""

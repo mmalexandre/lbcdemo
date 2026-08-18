@@ -3,6 +3,6 @@
 
 aws_region         = "us-east-1"
 project            = "lbcdemo"
-node_instance_type = "t3.small"
+node_instance_type = "t3.medium"
 # db_password is intentionally omitted here; supply it via:
 #   export TF_VAR_db_password="<strong-password>"
