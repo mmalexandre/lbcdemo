@@ -58,7 +58,7 @@ services:
 
   storage:
     image: rustfs/rustfs:1.0.0-alpha.83
-    container_name: storage
+    container_name: lbcdemo-storage
     restart: unless-stopped
     networks:
       - app_net
@@ -83,7 +83,7 @@ services:
 
   create-bucket:
     image: amazon/aws-cli:2.33.25
-    container_name: mlflow-create-bucket
+    container_name: lbcdemo-mlflow-create-bucket
     networks:
       - app_net
     depends_on:
@@ -104,7 +104,7 @@ services:
 
   mlflow:
     image: python:3.11-slim
-    container_name: mlflow-server
+    container_name: lbcdemo-mlflow-server
     restart: unless-stopped
     networks:
       - app_net

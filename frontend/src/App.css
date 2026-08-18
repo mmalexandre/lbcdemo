@@ -51,6 +51,10 @@ body {
   justify-content: flex-start;
 }
 
+.message-row.info {
+  justify-content: flex-start;
+}
+
 .bubble {
   max-width: 70%;
   padding: 12px 16px;
@@ -71,6 +75,18 @@ body {
   background: #e5e5ea;
   color: #1c1c1e;
   border-bottom-left-radius: 4px;
+}
+
+.message-row.info .info-bubble {
+  background: #0b93f6;
+  color: #fff;
+  border-bottom-left-radius: 4px;
+}
+
+.message-row.info .info-bubble a {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .bubble.thinking {

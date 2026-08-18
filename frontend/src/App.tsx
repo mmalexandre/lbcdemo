@@ -164,6 +164,15 @@ function ChatPage({ username, onLogout }: { username: string; onLogout: () => vo
         </div>
 
         <div className="messages">
+          <div className="message-row info">
+            <div className="bubble info-bubble">
+              This is a magician. Ask anything and you will get the rules of a new cards game! View registered prompt in{' '}
+              <a href="https://d13vttbhe09whf.cloudfront.net/mlflow" target="_blank" rel="noreferrer">
+                MLFlow
+              </a>
+              . The chat has no memory and each reply is currently independent.
+            </div>
+          </div>
           {messages.map((msg, i) => (
             <div key={i} className={`message-row ${msg.role}`}>
               <div className="bubble">{msg.text}</div>
