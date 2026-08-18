@@ -46,8 +46,17 @@ type modelVersionTag struct {
 
 type modelVersionResponse struct {
 	ModelVersion struct {
-		Tags []modelVersionTag `json:"tags"`
+		Name    string            `json:"name"`
+		Version string            `json:"version"`
+		Tags    []modelVersionTag `json:"tags"`
 	} `json:"model_version"`
+}
+
+// PromptVersionInfo contains resolved prompt metadata loaded from the registry.
+type PromptVersionInfo struct {
+	Name     string
+	Version  string
+	Template string
 }
 
 // LoadPrompt fetches the template text for the given prompt URI.
@@ -58,9 +67,19 @@ type modelVersionResponse struct {
 //	prompts:/name/version      (e.g. prompts:/assistant/1)
 //	prompts:/name              (resolves to @latest)
 func (p *RegistryClient) LoadPrompt(promptURI string) (string, error) {
-	name, ref, err := parsePromptURI(promptURI)
+	info, err := p.LoadPromptVersionInfo(promptURI)
 	if err != nil {
 		return "", err
+	}
+	return info.Template, nil
+}
+
+// LoadPromptVersionInfo resolves a prompt URI and returns the template plus
+// resolved prompt name/version metadata when available.
+func (p *RegistryClient) LoadPromptVersionInfo(promptURI string) (*PromptVersionInfo, error) {
+	name, ref, err := parsePromptURI(promptURI)
+	if err != nil {
+		return nil, err
 	}
 
 	var mv modelVersionResponse
@@ -69,22 +88,30 @@ func (p *RegistryClient) LoadPrompt(promptURI string) (string, error) {
 		apiURL := fmt.Sprintf("%s/api/2.0/mlflow/model-versions/get?name=%s&version=%s",
 			p.baseURL, url.QueryEscape(name), url.QueryEscape(ref))
 		if err := p.getJSON(apiURL, &mv); err != nil {
-			return "", fmt.Errorf("load prompt version %s/%s: %w", name, ref, err)
+			return nil, fmt.Errorf("load prompt version %s/%s: %w", name, ref, err)
 		}
 	} else {
 		apiURL := fmt.Sprintf("%s/api/2.0/mlflow/registered-models/alias?name=%s&alias=%s",
 			p.baseURL, url.QueryEscape(name), url.QueryEscape(ref))
 		if err := p.getJSON(apiURL, &mv); err != nil {
-			return "", fmt.Errorf("load prompt alias %s@%s: %w", name, ref, err)
+			return nil, fmt.Errorf("load prompt alias %s@%s: %w", name, ref, err)
 		}
 	}
 
 	for _, tag := range mv.ModelVersion.Tags {
 		if tag.Key == "mlflow.prompt.text" || tag.Key == "mlflow.prompt.template" {
-			return tag.Value, nil
+			version := mv.ModelVersion.Version
+			if version == "" && isNumeric(ref) {
+				version = ref
+			}
+			return &PromptVersionInfo{
+				Name:     name,
+				Version:  version,
+				Template: tag.Value,
+			}, nil
 		}
 	}
-	return "", fmt.Errorf("prompt %q has no mlflow.prompt.text tag", promptURI)
+	return nil, fmt.Errorf("prompt %q has no mlflow.prompt.text tag", promptURI)
 }
 
 // FormatPrompt fills in {{variable}} placeholders in the template.

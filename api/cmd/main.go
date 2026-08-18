@@ -46,16 +46,22 @@ func getEnv(key, fallback string) string {
 // If MLFLOW_PROMPT_URI is set (e.g. "prompts:/assistant/production"), the
 // template is fetched from the MLflow Prompt Registry. Otherwise it falls back
 // to the SYSTEM_PROMPT env var (default: "You are a helpful assistant.").
-func loadSystemPrompt(registry *mlflow.RegistryClient) string {
+type resolvedPrompt struct {
+	text    string
+	name    string
+	version string
+}
+
+func loadSystemPrompt(registry *mlflow.RegistryClient) resolvedPrompt {
 	if uri := getEnv("MLFLOW_PROMPT_URI", ""); uri != "" {
-		template, err := registry.LoadPrompt(uri)
+		promptInfo, err := registry.LoadPromptVersionInfo(uri)
 		if err != nil {
 			log.Printf("prompt registry: could not load %q, falling back to SYSTEM_PROMPT: %v", uri, err)
 		} else {
-			return template
+			return resolvedPrompt{text: promptInfo.Template, name: promptInfo.Name, version: promptInfo.Version}
 		}
 	}
-	return getEnv("SYSTEM_PROMPT", "You are a helpful assistant.")
+	return resolvedPrompt{text: getEnv("SYSTEM_PROMPT", "You are a helpful assistant.")}
 }
 
 func authMiddleware() gin.HandlerFunc {
@@ -182,7 +188,7 @@ func newRouter(
 			systemPrompt := loadSystemPrompt(promptRegistry)
 			startTime := time.Now()
 
-			llmResp, err := llmClient.Chat(c.Request.Context(), systemPrompt, req.Prompt)
+			llmResp, err := llmClient.Chat(c.Request.Context(), systemPrompt.text, req.Prompt)
 			duration := time.Since(startTime)
 
 			if err != nil {
@@ -195,6 +201,7 @@ func newRouter(
 				username, req.Prompt, llmResp.Content, llmResp.Model,
 				llmResp.InputTokens, llmResp.OutputTokens,
 				startTime, duration,
+				systemPrompt.name, systemPrompt.version,
 			)
 
 			c.JSON(http.StatusOK, PromptResponse{Reply: llmResp.Content})

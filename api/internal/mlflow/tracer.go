@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 )
+
+const defaultExperimentName = "Magician"
 
 // Tracer logs LLM call traces to the MLflow tracking server via REST API.
 type Tracer struct {
@@ -33,13 +36,18 @@ func NewTracer() *Tracer {
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 
-	expID, err := t.ensureExperiment("go-llm-agent")
+	expName := os.Getenv("MLFLOW_EXPERIMENT_NAME")
+	if expName == "" {
+		expName = defaultExperimentName
+	}
+
+	expID, err := t.ensureExperiment(expName)
 	if err != nil {
 		log.Printf("mlflow: could not ensure experiment, using default: %v", err)
 		expID = "0"
 	}
 	t.experimentID = expID
-	log.Printf("mlflow: using experiment id=%s at %s", expID, baseURL)
+	log.Printf("mlflow: using experiment name=%q id=%s at %s", expName, expID, baseURL)
 	return t
 }
 
@@ -50,7 +58,12 @@ func NewTracerWithURL(baseURL string) *Tracer {
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
-	expID, err := t.ensureExperiment("go-llm-agent")
+	expName := os.Getenv("MLFLOW_EXPERIMENT_NAME")
+	if expName == "" {
+		expName = defaultExperimentName
+	}
+
+	expID, err := t.ensureExperiment(expName)
 	if err != nil {
 		expID = "0"
 	}
@@ -109,6 +122,7 @@ func (t *Tracer) LogLLMTrace(
 	inputTokens, outputTokens int,
 	startTime time.Time,
 	duration time.Duration,
+	promptName, promptVersion string,
 ) {
 	inputs, _ := json.Marshal(map[string]interface{}{
 		"messages": []map[string]string{
@@ -124,6 +138,22 @@ func (t *Tracer) LogLLMTrace(
 		},
 	})
 
+	tags := []traceKV{
+		{Key: "mlflow.user", Value: user},
+		{Key: "model", Value: model},
+		{Key: "input_tokens", Value: fmt.Sprintf("%d", inputTokens)},
+		{Key: "output_tokens", Value: fmt.Sprintf("%d", outputTokens)},
+	}
+	if promptName != "" {
+		tags = append(tags, traceKV{Key: "mlflow.prompt.name", Value: promptName})
+	}
+	if promptVersion != "" {
+		tags = append(tags, traceKV{Key: "mlflow.prompt.version", Value: promptVersion})
+	}
+	if linkedPrompts := linkedPromptsTagValue(promptName, promptVersion); linkedPrompts != "" {
+		tags = append(tags, traceKV{Key: "mlflow.linkedPrompts", Value: linkedPrompts})
+	}
+
 	payload := map[string]interface{}{
 		"experiment_id":     t.experimentID,
 		"timestamp_ms":      startTime.UnixMilli(),
@@ -134,12 +164,7 @@ func (t *Tracer) LogLLMTrace(
 			{Key: "mlflow.traceOutputs", Value: string(outputs)},
 			{Key: "mlflow.traceName", Value: "chat_completion"},
 		},
-		"tags": []traceKV{
-			{Key: "mlflow.user", Value: user},
-			{Key: "model", Value: model},
-			{Key: "input_tokens", Value: fmt.Sprintf("%d", inputTokens)},
-			{Key: "output_tokens", Value: fmt.Sprintf("%d", outputTokens)},
-		},
+		"tags": tags,
 	}
 
 	body, err := json.Marshal(payload)
@@ -159,7 +184,104 @@ func (t *Tracer) LogLLMTrace(
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("mlflow: trace endpoint returned status %d", resp.StatusCode)
+		return
 	}
+
+	if promptName == "" || promptVersion == "" {
+		return
+	}
+
+	traceID := extractTraceID(respBody)
+	if traceID == "" {
+		log.Printf("mlflow: trace created but no trace_id/request_id returned; skipping prompt linking")
+		return
+	}
+
+	if err := t.linkPromptToTrace(traceID, promptName, promptVersion); err != nil {
+		log.Printf("mlflow: link prompt to trace failed: %v", err)
+	}
+}
+
+func linkedPromptsTagValue(promptName, promptVersion string) string {
+	if promptName == "" || promptVersion == "" {
+		return ""
+	}
+	body, err := json.Marshal([]map[string]string{{
+		"name":    promptName,
+		"version": promptVersion,
+	}})
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+func extractTraceID(respBody []byte) string {
+	var parsed struct {
+		RequestID string `json:"request_id"`
+		TraceID   string `json:"trace_id"`
+		TraceInfo struct {
+			RequestID string `json:"request_id"`
+			TraceID   string `json:"trace_id"`
+		} `json:"trace_info"`
+		Trace struct {
+			TraceInfo struct {
+				RequestID string `json:"request_id"`
+				TraceID   string `json:"trace_id"`
+			} `json:"trace_info"`
+		} `json:"trace"`
+	}
+
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return ""
+	}
+
+	candidates := []string{
+		parsed.TraceInfo.TraceID,
+		parsed.TraceInfo.RequestID,
+		parsed.Trace.TraceInfo.TraceID,
+		parsed.Trace.TraceInfo.RequestID,
+		parsed.TraceID,
+		parsed.RequestID,
+	}
+	for _, id := range candidates {
+		if id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+func (t *Tracer) linkPromptToTrace(traceID, promptName, promptVersion string) error {
+	body, err := json.Marshal(map[string]interface{}{
+		"trace_id": traceID,
+		"prompt_versions": []map[string]string{{
+			"name":    promptName,
+			"version": promptVersion,
+		}},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal link payload: %w", err)
+	}
+
+	resp, err := t.httpClient.Post(
+		fmt.Sprintf("%s/api/2.0/mlflow/traces/link-prompts", t.baseURL),
+		"application/json",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return fmt.Errorf("post link prompt: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
 }

@@ -34,7 +34,7 @@ func TestEnsureExperiment_ExistsReturnsID(t *testing.T) {
 	defer srv.Close()
 
 	tr := newTestTracer(srv.URL)
-	id, err := tr.ensureExperiment("go-llm-agent")
+	id, err := tr.ensureExperiment("Magician")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestLogLLMTrace_NoopOnServerError(t *testing.T) {
 
 	tr := newTestTracer(srv.URL)
 	// Must not panic
-	tr.LogLLMTrace("user1", "hello", "world", "gpt-4o-mini", 10, 20, time.Now(), time.Millisecond*100)
+	tr.LogLLMTrace("user1", "hello", "world", "gpt-4o-mini", 10, 20, time.Now(), time.Millisecond*100, "", "")
 }
 
 func TestLogLLMTrace_Success(t *testing.T) {
@@ -120,12 +120,54 @@ func TestLogLLMTrace_Success(t *testing.T) {
 
 	tr := newTestTracer(srv.URL)
 	tr.experimentID = "5"
-	tr.LogLLMTrace("alice", "prompt", "reply", "gpt-4o-mini", 15, 25, time.Now(), time.Second)
+	tr.LogLLMTrace("alice", "prompt", "reply", "gpt-4o-mini", 15, 25, time.Now(), time.Second, "", "")
 
 	if received == nil {
 		t.Fatal("expected tracer to POST a payload, got nothing")
 	}
 	if received["experiment_id"] != "5" {
 		t.Errorf("experiment_id: got %v, want %q", received["experiment_id"], "5")
+	}
+}
+
+func TestLogLLMTrace_LinksPromptVersion(t *testing.T) {
+	var linkPayload map[string]interface{}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/2.0/mlflow/traces":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"trace_info": map[string]string{"request_id": "tr-123"},
+			})
+		case "/api/2.0/mlflow/traces/link-prompts":
+			_ = json.NewDecoder(r.Body).Decode(&linkPayload)
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	tr := newTestTracer(srv.URL)
+	tr.experimentID = "5"
+	tr.LogLLMTrace("alice", "prompt", "reply", "gpt-4o-mini", 15, 25, time.Now(), time.Second, "cardgame", "4")
+
+	if linkPayload == nil {
+		t.Fatal("expected prompt link payload, got nil")
+	}
+	if linkPayload["trace_id"] != "tr-123" {
+		t.Fatalf("trace_id: got %v, want tr-123", linkPayload["trace_id"])
+	}
+	promptVersions, ok := linkPayload["prompt_versions"].([]interface{})
+	if !ok || len(promptVersions) != 1 {
+		t.Fatalf("prompt_versions malformed: %#v", linkPayload["prompt_versions"])
+	}
+	first, ok := promptVersions[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("first prompt version malformed: %#v", promptVersions[0])
+	}
+	if first["name"] != "cardgame" || first["version"] != "4" {
+		t.Fatalf("unexpected prompt link entry: %#v", first)
 	}
 }

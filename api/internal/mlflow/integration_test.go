@@ -57,6 +57,8 @@ func (f *fakeMLflow) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"model_version": map[string]interface{}{
+				"name":    "mymodel",
+				"version": "3",
 				"tags": []map[string]string{
 					{"key": "mlflow.prompt.text", "value": f.promptTemplate},
 				},
@@ -69,6 +71,8 @@ func (f *fakeMLflow) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"model_version": map[string]interface{}{
+				"name":    "mymodel",
+				"version": "7",
 				"tags": []map[string]string{
 					{"key": "mlflow.prompt.text", "value": f.promptTemplate},
 				},
@@ -79,6 +83,13 @@ func (f *fakeMLflow) handler() http.Handler {
 	// Traces
 	mux.HandleFunc("/api/2.0/mlflow/traces", func(w http.ResponseWriter, r *http.Request) {
 		f.traceCount.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"trace_info": map[string]string{"request_id": "tr-int-1"},
+		})
+	})
+
+	mux.HandleFunc("/api/2.0/mlflow/traces/link-prompts", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -186,6 +197,8 @@ func TestTracer_LogLLMTrace_ReceivedByServer(t *testing.T) {
 		10, 5,
 		time.Now(),
 		100*time.Millisecond,
+		"",
+		"",
 	)
 
 	// LogLLMTrace is synchronous in its HTTP call; give a tiny moment for
@@ -205,7 +218,7 @@ func TestTracer_LogLLMTrace_MultipleTracesAreAllReceived(t *testing.T) {
 
 	const n = 5
 	for i := 0; i < n; i++ {
-		tr.LogLLMTrace("user", "prompt", "reply", "model", 1, 1, time.Now(), time.Millisecond)
+		tr.LogLLMTrace("user", "prompt", "reply", "model", 1, 1, time.Now(), time.Millisecond, "", "")
 	}
 	time.Sleep(100 * time.Millisecond)
 
@@ -246,7 +259,7 @@ func TestIntegration_RegistryAndTracerWorkflow(t *testing.T) {
 	}
 
 	// Simulate logging an LLM trace for this interaction.
-	tr.LogLLMTrace("bob", "Hello", "Hi there!", "gpt-4o-mini", 5, 3, time.Now(), 50*time.Millisecond)
+	tr.LogLLMTrace("bob", "Hello", "Hi there!", "gpt-4o-mini", 5, 3, time.Now(), 50*time.Millisecond, "assistant", "7")
 	time.Sleep(50 * time.Millisecond)
 
 	if got := fake.traceCount.Load(); got != 1 {
