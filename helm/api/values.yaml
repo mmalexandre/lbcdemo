@@ -39,7 +39,7 @@ hpa:
 config:
   GIN_MODE: "release"
   OPENAI_MODEL: "gpt-4o-mini"
-  MLFLOW_TRACKING_URI: "http://mlflow.lbcdemo.svc.cluster.local:5000"
+  MLFLOW_TRACKING_URI: "http://mlflow.lbcdemo.svc.cluster.local:5000/mlflow"
   MLFLOW_PROMPT_URI: "prompts:/cardgame/production"
   # Set FRONTEND_ORIGIN to your CloudFront URL after provisioning
   FRONTEND_ORIGIN: ""

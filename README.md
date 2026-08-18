@@ -88,3 +88,16 @@ The app is deployed to AWS via GitHub Actions on every push to `main`. See [doc/
 | https://d13vttbhe09whf.cloudfront.net/mlflow | MLflow UI |
 
 > **API** is proxied through CloudFront at `/api/*` (same-origin HTTPS — no mixed-content issues).
+
+### Prompt behavior troubleshooting
+
+If chat replies become generic (and no longer follow the registered MLflow prompt), verify the API is loading prompt config correctly:
+
+1. Confirm API config values:
+   - `MLFLOW_TRACKING_URI` should point to the MLflow service base used by the API deployment.
+   - `MLFLOW_PROMPT_URI` should point to your registered prompt alias/version (for example `prompts:/cardgame/production`).
+2. Check API logs for fallback warnings:
+   - `prompt registry: could not load ... falling back to SYSTEM_PROMPT`
+3. Validate the prompt alias in MLflow exists and has the `mlflow.prompt.text` (or `mlflow.prompt.template`) tag.
+
+Note: the Helm API Deployment includes a ConfigMap checksum annotation, so changes to API ConfigMap values trigger a pod rollout automatically on deploy.
