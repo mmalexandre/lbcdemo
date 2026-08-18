@@ -6,6 +6,12 @@ image:
 
 replicaCount: 1
 
+deploymentStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+
 namespace: lbcdemo
 
 service:
